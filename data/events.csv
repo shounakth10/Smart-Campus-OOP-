@@ -1,0 +1,5 @@
+eventId,type,eventName,description,date,startTime,endTime,facilityId,organizerId,maxParticipants,extra1,extra2,participantIds
+701,Workshop,C++ Modern Design,Deep dive into C++17/20,2026-10-15,10:00,13:00,201,201,2,Modern Metaprogramming,Dr. Amit Patil,
+702,Sports Event,Campus Lawn Gathering,Cultural Outdoor Evening,2026-10-18,15:00,18:00,401,301,100,Outdoor Event,Annual,101
+703,Cultural Event,Annual Cultural Fest,Music & Dance Night,2026-10-22,18:00,21:00,301,301,500,Music & Performance Art,N/A,
+704,Technical Event,SmartCampus Hackathon 2026,24-hr System Design Hack,2026-10-25,09:00,17:00,301,101,100,Systems Architecture,Hackathon,

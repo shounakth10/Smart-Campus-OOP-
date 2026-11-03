@@ -1,0 +1,7 @@
+id,name,email,phone,branch,year,division,courseIds
+101,Rahul Sharma,rahul@vit.edu,9876543210,CSE-AI,2,F,301;302;303
+102,Aditya Patil,aditya@vit.edu,9876543211,CSE-AI,2,F,301;303
+103,Sneha Kulkarni,sneha@vit.edu,9876543212,Computer Science,3,A,304
+104,Vikram Singh,vikram@vit.edu,9876543213,Electronics,1,B,305
+105,Ananya Joshi,ananya@vit.edu,9876543214,Computer Science,3,A,
+109,Shounak,ss@gmail.com,8920392834,AIDS,2,F,301

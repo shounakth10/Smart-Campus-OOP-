@@ -1,0 +1,7 @@
+entryId,courseId,professorId,facilityId,day,startTime,endTime,division,year
+601,301,201,101,Monday,10:00,12:00,F,2
+602,302,202,102,Monday,13:00,15:00,F,2
+603,303,201,201,Tuesday,10:00,12:00,F,2
+604,304,202,101,Tuesday,13:00,15:00,A,3
+605,305,203,103,Wednesday,10:00,12:00,B,1
+606,301,201,101,Wednesday,14:00,16:00,F,2

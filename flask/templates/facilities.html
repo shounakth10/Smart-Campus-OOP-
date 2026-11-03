@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Facilities{% endblock %}
+{% block page_title %}Facilities{% endblock %}
+
+{% block content %}
+<div class="table-card">
+    <div class="table-header">
+        <h2 class="section-title">Campus Facilities</h2>
+        <div class="header-actions">
+            <input type="text" class="search-input" placeholder="🔍 Search facilities..." oninput="filterTable('facTable', this.value)">
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <table id="facTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Location</th>
+                    <th>Capacity</th>
+                    <th>Status</th>
+                    <th>Utilization</th>
+                </tr>
+            </thead>
+            <tbody id="facBody">
+                <tr><td colspan="7" class="loading-cell">Loading from C++ backend…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="table-card">
+    <div class="table-header">
+        <h2 class="section-title">Utilization Overview</h2>
+    </div>
+    <canvas id="facUtilChart" height="150"></canvas>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const typeIcons = {
+    'Classroom': '🏫',
+    'Lab': '🔬',
+    'Auditorium': '🎭',
+    'Sports Ground': '🌿',
+};
+
+async function loadFacilities() {
+    const data = await apiGet('/api/facilities');
+    const body = document.getElementById('facBody');
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        body.innerHTML = '<tr><td colspan="7" class="empty-cell">No facilities found.</td></tr>';
+        return;
+    }
+    body.innerHTML = data.map(f => {
+        const util = parseFloat(f.utilization || 0);
+        const statusClass = f.status === 'Underutilized' ? 'badge-warning' : f.status === 'Overloaded' ? 'badge-danger' : 'badge-success';
+        const icon = typeIcons[f.type] || '🏛️';
+        const barColor = util > 90 ? '#ef4444' : util > 70 ? '#f59e0b' : util > 30 ? '#3b82f6' : '#6b7280';
+        return `<tr>
+            <td><span class="id-badge">${f.facilityId}</span></td>
+            <td><span class="type-icon">${icon}</span> ${esc(f.type)}</td>
+            <td><strong>${esc(f.name)}</strong></td>
+            <td>${esc(f.location)}</td>
+            <td>${f.capacity} seats</td>
+            <td><span class="badge ${f.available ? 'badge-success' : 'badge-danger'}">${f.available ? 'Available' : 'Occupied'}</span></td>
+            <td>
+                <div class="util-bar-wrap">
+                    <div class="util-bar" style="width:${Math.min(util,100)}%; background:${barColor}"></div>
+                    <span class="util-text">${util.toFixed(1)}% — <span class="badge ${statusClass}">${esc(f.status)}</span></span>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    // Chart
+    const labels = data.map(f => f.name);
+    const values = data.map(f => parseFloat(f.utilization || 0).toFixed(1));
+    const colors = values.map(u => u > 90 ? '#ef4444' : u > 70 ? '#f59e0b' : u > 30 ? '#3b82f6' : '#6b7280');
+    initBarChart('facUtilChart', labels, values, colors, 'Utilization %');
+}
+
+loadFacilities();
+</script>
+{% endblock %}

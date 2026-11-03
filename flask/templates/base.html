@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SmartCampus – University Management & Resource Planning System">
+    <title>{% block title %}SmartCampus{% endblock %} | SmartCampus</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="app-container">
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <div class="brand-icon">🎓</div>
+            <div>
+                <div class="brand-name">Smart<span>Campus</span></div>
+                <div class="brand-sub">Campus Management</div>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-group">
+                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+            </div>
+            <div class="nav-group">
+                <div class="nav-label">People</div>
+                <a href="/students" class="nav-link {% if '/students' in request.path %}active{% endif %}">
+                    <span class="nav-icon">🎒</span> Students
+                </a>
+                <a href="/professors" class="nav-link {% if '/professors' in request.path %}active{% endif %}">
+                    <span class="nav-icon">👨‍🏫</span> Professors
+                </a>
+                <a href="/staff" class="nav-link {% if '/staff' in request.path %}active{% endif %}">
+                    <span class="nav-icon">👷</span> Staff
+                </a>
+            </div>
+            <div class="nav-group">
+                <div class="nav-label">Academics</div>
+                <a href="/courses" class="nav-link {% if '/courses' in request.path %}active{% endif %}">
+                    <span class="nav-icon">📚</span> Courses
+                </a>
+                <a href="/timetable" class="nav-link {% if '/timetable' in request.path %}active{% endif %}">
+                    <span class="nav-icon">🗓️</span> Timetable
+                </a>
+            </div>
+            <div class="nav-group">
+                <div class="nav-label">Facilities</div>
+                <a href="/facilities" class="nav-link {% if '/facilities' in request.path %}active{% endif %}">
+                    <span class="nav-icon">🏛️</span> Facilities
+                </a>
+                <a href="/bookings" class="nav-link {% if '/bookings' in request.path %}active{% endif %}">
+                    <span class="nav-icon">📋</span> Bookings
+                </a>
+            </div>
+            <div class="nav-group">
+                <a href="/events" class="nav-link {% if '/events' in request.path %}active{% endif %}">
+                    <span class="nav-icon">🎉</span> Events
+                </a>
+                <a href="/analytics" class="nav-link {% if '/analytics' in request.path %}active{% endif %}">
+                    <span class="nav-icon">📈</span> Analytics
+                </a>
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="campus-info">
+                <div class="info-dot"></div>
+                <span>System Online</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-bar">
+            <div class="top-left">
+                <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar">☰</button>
+                <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+            </div>
+            <div class="top-right">
+                <div class="top-badge">
+                    <span class="badge-dot"></span>
+                    <span>C++ Backend Active</span>
+                </div>
+            </div>
+        </header>
+        <div class="content-body">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+
+<div id="toast-container"></div>
+
+<div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true">
+    <div class="modal-card" id="modalCard">
+        <div class="modal-header">
+            <h3 id="modalTitle">Modal</h3>
+            <button class="modal-close" id="modalClose" aria-label="Close">✕</button>
+        </div>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

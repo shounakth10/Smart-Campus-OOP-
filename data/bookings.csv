@@ -1,0 +1,7 @@
+bookingId,facilityId,bookedByPersonId,date,startTime,endTime,purpose,status
+501,101,101,2026-10-10,10:00,12:00,ACM Hackathon Briefing,Confirmed
+502,201,201,2026-10-10,14:00,17:00,AI Lab Workshop,Confirmed
+503,301,202,2026-10-11,09:00,12:00,Department Guest Lecture,Confirmed
+504,401,103,2026-10-12,16:00,18:00,Lawn Recreation Session,Confirmed
+505,102,203,2026-10-13,11:00,13:00,Electronics Lab Review,Confirmed
+345,101,101,2026-11-10,08:15,10:15,3,Confirmed

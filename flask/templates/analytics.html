@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block page_title %}Analytics & Insights{% endblock %}
+
+{% block content %}
+<div class="analytics-header">
+    <div class="analytics-sub">Powered by C++ AnalyticsManager · 60 hrs/week baseline</div>
+</div>
+
+<div class="charts-grid">
+    <div class="table-card">
+        <div class="table-header">
+            <h2 class="section-title">Facility Utilization (%)</h2>
+            <span class="badge badge-info">Live Data</span>
+        </div>
+        <canvas id="analyticsBarChart" height="220"></canvas>
+    </div>
+    <div class="table-card">
+        <div class="table-header">
+            <h2 class="section-title">Utilization Distribution</h2>
+        </div>
+        <canvas id="analyticsDoughnutChart" height="220"></canvas>
+    </div>
+</div>
+
+<div class="table-card">
+    <div class="table-header">
+        <h2 class="section-title">Per-Facility Breakdown</h2>
+    </div>
+    <div class="table-wrapper">
+        <table id="analyticsTable">
+            <thead>
+                <tr>
+                    <th>Facility</th>
+                    <th>Type</th>
+                    <th>Booked Hours</th>
+                    <th>Available Hours</th>
+                    <th>Utilization %</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="analyticsBody">
+                <tr><td colspan="6" class="loading-cell">Loading…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="table-card">
+    <div class="table-header">
+        <h2 class="section-title">🤖 System Recommendations</h2>
+    </div>
+    <div id="recommendationsPanel" class="recs-panel">
+        <div class="loading-placeholder">Generating recommendations…</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadAnalytics() {
+    const data = await apiGet('/api/analytics');
+    if (!data) return;
+
+    const facilities = data.facilities || [];
+    const recs = data.recommendations || [];
+
+    // Bar chart
+    const labels = facilities.map(f => f.name);
+    const utils = facilities.map(f => parseFloat(f.utilization || 0).toFixed(1));
+    const colors = utils.map(u => u > 90 ? '#ef4444' : u > 70 ? '#f59e0b' : u > 30 ? '#3b82f6' : '#6b7280');
+    initBarChart('analyticsBarChart', labels, utils, colors, 'Utilization %');
+
+    // Doughnut
+    const statusCount = { Underutilized: 0, Normal: 0, 'Highly Utilized': 0, Overloaded: 0 };
+    facilities.forEach(f => { if (statusCount[f.status] !== undefined) statusCount[f.status]++; });
+    const dCtx = document.getElementById('analyticsDoughnutChart').getContext('2d');
+    new Chart(dCtx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(statusCount),
+            datasets: [{
+                data: Object.values(statusCount),
+                backgroundColor: ['#6b7280', '#3b82f6', '#f59e0b', '#ef4444'],
+                borderWidth: 2,
+                borderColor: '#1e293b',
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16 } }
+            }
+        }
+    });
+
+    // Table
+    const body = document.getElementById('analyticsBody');
+    body.innerHTML = facilities.map(f => {
+        const util = parseFloat(f.utilization || 0);
+        const statusClass = f.status === 'Underutilized' ? 'badge-warning' : f.status === 'Overloaded' ? 'badge-danger' : f.status === 'Highly Utilized' ? 'badge-warning' : 'badge-success';
+        const barW = Math.min(util, 100);
+        const barColor = util > 90 ? '#ef4444' : util > 70 ? '#f59e0b' : util > 30 ? '#3b82f6' : '#6b7280';
+        return `<tr>
+            <td><strong>${esc(f.name)}</strong></td>
+            <td>${esc(f.type)}</td>
+            <td>${parseFloat(f.bookedHours || 0).toFixed(1)} hrs</td>
+            <td>60.0 hrs</td>
+            <td>
+                <div class="util-bar-wrap">
+                    <div class="util-bar" style="width:${barW}%;background:${barColor}"></div>
+                    <span class="util-text">${util.toFixed(1)}%</span>
+                </div>
+            </td>
+            <td><span class="badge ${statusClass}">${esc(f.status)}</span></td>
+        </tr>`;
+    }).join('');
+
+    // Recommendations
+    const panel = document.getElementById('recommendationsPanel');
+    if (recs.length === 0) {
+        panel.innerHTML = '<div class="rec-item rec-good">✅ Facility usage is well-balanced across campus. No critical issues detected.</div>';
+    } else {
+        panel.innerHTML = recs.map((r, i) => `<div class="rec-item" style="animation-delay:${i * 0.08}s">💡 ${esc(r)}</div>`).join('');
+    }
+}
+
+loadAnalytics();
+</script>
+{% endblock %}

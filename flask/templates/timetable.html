@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Timetable{% endblock %}
+{% block page_title %}Class Timetable{% endblock %}
+
+{% block content %}
+<div class="table-card">
+    <div class="table-header">
+        <h2 class="section-title">Timetable Entries</h2>
+        <div class="header-actions">
+            <input type="text" class="search-input" placeholder="🔍 Filter by day/course..." oninput="filterTable('ttTable', this.value)">
+            <button class="btn btn-primary" onclick="openAddTimetableModal()">+ Add Entry</button>
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <table id="ttTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Day</th>
+                    <th>Course ID</th>
+                    <th>Professor ID</th>
+                    <th>Facility ID</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Division</th>
+                    <th>Year</th>
+                </tr>
+            </thead>
+            <tbody id="ttBody">
+                <tr><td colspan="9" class="loading-cell">Loading from C++ backend…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="table-card">
+    <div class="table-header">
+        <h2 class="section-title">Weekly Schedule Grid</h2>
+        <div class="header-actions">
+            <select class="search-input" id="classFilter" onchange="renderGrid(allEntries)">
+                <option value="">All Classes</option>
+            </select>
+        </div>
+    </div>
+    <div class="timetable-grid-wrapper" id="scheduleGrid">
+        <div class="loading-placeholder">Loading schedule…</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const dayColors = { Monday:'#3b82f6', Tuesday:'#8b5cf6', Wednesday:'#10b981', Thursday:'#f59e0b', Friday:'#ef4444' };
+let allEntries = [];
+let allCourses = [];
+let allProfs = [];
+let allFacs = [];
+
+async function loadTimetable() {
+    const [data, courses, profs, facs] = await Promise.all([
+        apiGet('/api/timetable'),
+        apiGet('/api/courses'),
+        apiGet('/api/professors'),
+        apiGet('/api/facilities')
+    ]);
+    
+    allCourses = courses || [];
+    allProfs = profs || [];
+    allFacs = facs || [];
+
+    const body = document.getElementById('ttBody');
+    if (!data || !Array.isArray(data)) {
+        body.innerHTML = '<tr><td colspan="9" class="empty-cell">No timetable entries found.</td></tr>';
+        return;
+    }
+    allEntries = data;
+    body.innerHTML = data.map(t => `
+        <tr>
+            <td><span class="id-badge">${t.entryId}</span></td>
+            <td><span class="day-badge" style="background:${dayColors[t.day] || '#6b7280'}20;color:${dayColors[t.day] || '#6b7280'}">${esc(t.day)}</span></td>
+            <td>Course #${t.courseId}</td>
+            <td>Prof #${t.professorId}</td>
+            <td>Facility #${t.facilityId}</td>
+            <td>${esc(t.startTime)}</td>
+            <td>${esc(t.endTime)}</td>
+            <td><span class="badge badge-info">Div ${esc(t.division)}</span></td>
+            <td>Year ${t.year}</td>
+        </tr>
+    `).join('');
+    renderGrid(data);
+}
+
+function renderGrid(data) {
+    const classFilter = document.getElementById('classFilter').value;
+    const filtered = classFilter ? data.filter(t => (t.year + '-' + t.division) === classFilter) : data;
+    const grid = document.getElementById('scheduleGrid');
+    
+    // Auto-populate filter options
+    const uniqueClasses = [...new Set(data.map(t => t.year + '-' + t.division))].sort();
+    const filterSelect = document.getElementById('classFilter');
+    if (filterSelect.options.length <= 1) {
+        uniqueClasses.forEach(c => {
+            const [y, d] = c.split('-');
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = `Year ${y} - Div ${d}`;
+            filterSelect.appendChild(opt);
+        });
+    }
+
+    const dayMap = {};
+    days.forEach(d => { dayMap[d] = []; });
+    filtered.forEach(t => { if (dayMap[t.day]) dayMap[t.day].push(t); });
+
+    grid.innerHTML = `
+        <div class="sched-grid">
+            <div class="sched-header sched-time-col">Time</div>
+            ${days.map(d => `<div class="sched-header" style="color:${dayColors[d]}">${d}</div>`).join('')}
+            ${filtered.length === 0 ? `<div style="grid-column:1/-1;padding:20px;text-align:center;color:var(--text-muted)">No entries for selected filter.</div>` : ''}
+        </div>
+        <div class="sched-entries">
+            ${days.map(d => `
+                <div class="sched-day-col">
+                    <div class="sched-day-label" style="color:${dayColors[d]}">${d}</div>
+                    ${(dayMap[d] || []).map(t => `
+                        <div class="sched-card" style="border-left-color:${dayColors[d] || '#3b82f6'}">
+                            <div class="sched-time">${esc(t.startTime)} – ${esc(t.endTime)}</div>
+                            <div class="sched-course">Course #${t.courseId}</div>
+                            <div class="sched-meta">Prof #${t.professorId} · Rm #${t.facilityId} · Div ${esc(t.division)}</div>
+                        </div>
+                    `).join('')}
+                    ${dayMap[d].length === 0 ? '<div class="sched-empty">Free</div>' : ''}
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function openAddTimetableModal() {
+    openModal('Add Timetable Entry', `
+        <form id="addTTForm" onsubmit="submitAddTimetable(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Entry ID</label>
+                    <input type="number" class="form-control" id="tt_id" placeholder="e.g. 607" required>
+                </div>
+                <div class="form-group">
+                    <label>Day</label>
+                    <select class="form-control" id="tt_day" required>
+                        ${days.map(d => `<option value="${d}">${d}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Course ID</label>
+                    <select class="form-control" id="tt_course" required>
+                        <option value="">— Choose Course —</option>
+                        ${allCourses.map(c => `<option value="${c.courseId}">#${c.courseId} - ${esc(c.courseName)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Professor ID</label>
+                    <select class="form-control" id="tt_prof" required>
+                        <option value="">— Choose Professor —</option>
+                        ${allProfs.map(p => `<option value="${p.id}">#${p.id} - ${esc(p.name)}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Facility ID</label>
+                    <select class="form-control" id="tt_fac" required>
+                        <option value="">— Choose Facility —</option>
+                        ${allFacs.map(f => `<option value="${f.facilityId}">#${f.facilityId} - ${esc(f.name)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Start Time</label>
+                    <input type="time" class="form-control" id="tt_start" required>
+                </div>
+                <div class="form-group">
+                    <label>End Time</label>
+                    <input type="time" class="form-control" id="tt_end" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Division</label>
+                    <input type="text" class="form-control" id="tt_div" placeholder="A / B / F" required>
+                </div>
+                <div class="form-group">
+                    <label>Year</label>
+                    <select class="form-control" id="tt_year" required>
+                        <option value="1">Year 1</option>
+                        <option value="2" selected>Year 2</option>
+                        <option value="3">Year 3</option>
+                        <option value="4">Year 4</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Entry</button>
+            </div>
+        </form>
+    `);
+}
+
+async function submitAddTimetable(e) {
+    e.preventDefault();
+    const res = await apiPost('/api/timetable/add', {
+        entryId: document.getElementById('tt_id').value,
+        courseId: document.getElementById('tt_course').value,
+        professorId: document.getElementById('tt_prof').value,
+        facilityId: document.getElementById('tt_fac').value,
+        day: document.getElementById('tt_day').value,
+        startTime: document.getElementById('tt_start').value,
+        endTime: document.getElementById('tt_end').value,
+        division: document.getElementById('tt_div').value,
+        year: document.getElementById('tt_year').value,
+    });
+    if (res && res.success) {
+        showToast('Timetable entry added!', 'success');
+        closeModal();
+        loadTimetable();
+    } else {
+        showToast((res && res.message) || 'Failed — conflict detected.', 'error');
+    }
+}
+
+loadTimetable();
+</script>
+{% endblock %}

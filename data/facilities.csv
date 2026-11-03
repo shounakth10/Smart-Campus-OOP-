@@ -1,0 +1,8 @@
+facilityId,type,name,location,capacity,available,extra1,extra2,extra3
+101,Classroom,CSE Classroom 301,Main Building,60,1,Main Building,3,1
+102,Classroom,CSE Classroom 302,Main Building,60,1,Main Building,3,1
+103,Classroom,EC Classroom 101,EC Block,50,1,EC Block,1,0
+201,Lab,AI Lab,CS Building,40,1,Artificial Intelligence,40,1
+202,Lab,Programming Lab,CS Building,35,1,Software Engineering,35,1
+301,Auditorium,Main Auditorium,Admin Block,500,1,1,1,N/A
+401,Sports Ground,Campus Lawn,Central Campus,300,1,Leisure & Recreation,Grass,N/A

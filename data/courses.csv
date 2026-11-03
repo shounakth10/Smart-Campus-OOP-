@@ -1,0 +1,6 @@
+courseId,courseCode,courseName,credits,department,professorId,enrolledStudentIds
+301,CS201,Data Structures,4,Computer Science,201,101;102;109
+302,CS202,Object Oriented Programming,4,Computer Science,201,101
+303,AI201,Machine Learning,3,Artificial Intelligence,201,101;102
+304,CS301,Operating Systems,4,Computer Science,202,103
+305,EC101,Basic Electronics,3,Electronics,203,104

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Students{% endblock %}
+{% block page_title %}Students{% endblock %}
+
+{% block content %}
+<div class="table-card">
+    <div class="table-header">
+        <h2 class="section-title">Student Registry</h2>
+        <div class="header-actions">
+            <input type="text" class="search-input" id="studentSearch" placeholder="🔍 Search students..." oninput="filterTable('studentTable', this.value)">
+            <button class="btn btn-primary" id="addStudentBtn" onclick="openAddStudentModal()">+ Add Student</button>
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <table id="studentTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Branch</th>
+                    <th>Year</th>
+                    <th>Division</th>
+                    <th>Courses</th>
+                </tr>
+            </thead>
+            <tbody id="studentBody">
+                <tr><td colspan="8" class="loading-cell">Loading from C++ backend…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadStudents() {
+    const data = await apiGet('/api/students');
+    const body = document.getElementById('studentBody');
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        body.innerHTML = '<tr><td colspan="8" class="empty-cell">No students found.</td></tr>';
+        return;
+    }
+    body.innerHTML = data.map(s => `
+        <tr>
+            <td><span class="id-badge">${s.id}</span></td>
+            <td><strong>${esc(s.name)}</strong></td>
+            <td>${esc(s.email)}</td>
+            <td>${esc(s.phone)}</td>
+            <td><span class="badge badge-info">${esc(s.branch)}</span></td>
+            <td>Year ${s.year}</td>
+            <td>${esc(s.division)}</td>
+            <td><span class="badge badge-success">${s.courseCount || 0} courses</span></td>
+        </tr>
+    `).join('');
+}
+
+function openAddStudentModal() {
+    openModal('Add New Student', `
+        <form id="addStudentForm" onsubmit="submitAddStudent(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="number" class="form-control" id="s_id" placeholder="e.g. 106" required>
+                </div>
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" class="form-control" id="s_name" placeholder="e.g. Rohit Gupta" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" class="form-control" id="s_email" placeholder="rohit@vit.edu" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="text" class="form-control" id="s_phone" placeholder="9876543215" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Branch</label>
+                    <input type="text" class="form-control" id="s_branch" placeholder="CSE-AI" required>
+                </div>
+                <div class="form-group">
+                    <label>Year</label>
+                    <select class="form-control" id="s_year" required>
+                        <option value="1">Year 1</option>
+                        <option value="2">Year 2</option>
+                        <option value="3">Year 3</option>
+                        <option value="4">Year 4</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Division</label>
+                    <input type="text" class="form-control" id="s_division" placeholder="A / B / F" required>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Student</button>
+            </div>
+        </form>
+    `);
+}
+
+async function submitAddStudent(e) {
+    e.preventDefault();
+    const res = await apiPost('/api/students/add', {
+        id: document.getElementById('s_id').value,
+        name: document.getElementById('s_name').value,
+        email: document.getElementById('s_email').value,
+        phone: document.getElementById('s_phone').value,
+        branch: document.getElementById('s_branch').value,
+        year: document.getElementById('s_year').value,
+        division: document.getElementById('s_division').value,
+    });
+    if (res && res.success) {
+        showToast('Student added successfully!', 'success');
+        closeModal();
+        loadStudents();
+    } else {
+        showToast((res && res.message) || 'Failed to add student.', 'error');
+    }
+}
+
+loadStudents();
+</script>
+{% endblock %}

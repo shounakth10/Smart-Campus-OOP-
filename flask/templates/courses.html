@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}Courses{% endblock %}
+{% block page_title %}Courses{% endblock %}
+
+{% block content %}
+<div class="table-card">
+    <div class="table-header">
+        <h2 class="section-title">Course Catalog</h2>
+        <div class="header-actions">
+            <input type="text" class="search-input" placeholder="🔍 Search courses..." oninput="filterTable('courseTable', this.value)">
+            <button class="btn btn-primary" onclick="openAddCourseModal()">+ Add Course</button>
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <table id="courseTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Code</th>
+                    <th>Course Name</th>
+                    <th>Credits</th>
+                    <th>Department</th>
+                    <th>Professor</th>
+                    <th>Enrolled</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="courseBody">
+                <tr><td colspan="8" class="loading-cell">Loading from C++ backend…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Info panel shown when you click on enrolled count -->
+<div class="table-card" id="enrollPanel" style="display:none">
+    <div class="table-header">
+        <h2 class="section-title" id="enrollPanelTitle">Enrolled Students</h2>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('enrollPanel').style.display='none'">✕ Close</button>
+    </div>
+    <div id="enrollPanelBody" class="enroll-info-body">
+        <!-- Populated dynamically -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allStudents = [];
+let allCourses = [];
+let allProfs = [];
+
+async function loadCourses() {
+    const [courses, students, profs] = await Promise.all([
+        apiGet('/api/courses'),
+        apiGet('/api/students'),
+        apiGet('/api/professors'),
+    ]);
+
+    allStudents = students || [];
+    allCourses = courses || [];
+    allProfs = profs || [];
+
+    const body = document.getElementById('courseBody');
+    if (!courses || !Array.isArray(courses) || courses.length === 0) {
+        body.innerHTML = '<tr><td colspan="8" class="empty-cell">No courses found.</td></tr>';
+        return;
+    }
+
+    body.innerHTML = courses.map(c => {
+        // Find enrolled students for this course
+        const enrolled = allStudents.filter(s =>
+            s.courseCount > 0 && enrolledInCourse(s, c.courseId, courses)
+        );
+
+        return `
+        <tr>
+            <td><span class="id-badge">${c.courseId}</span></td>
+            <td><code class="code-badge">${esc(c.courseCode)}</code></td>
+            <td><strong>${esc(c.courseName)}</strong></td>
+            <td><span class="badge badge-info">${c.credits} cr</span></td>
+            <td>${esc(c.department)}</td>
+            <td>
+                ${c.professorId > 0
+                    ? `<span class="badge badge-success">Prof #${c.professorId}</span>`
+                    : `<span class="badge badge-warning">Unassigned</span>`}
+            </td>
+            <td>
+                <button class="enroll-count-btn" onclick="showEnrolledStudents(${c.courseId}, '${esc(c.courseName)}')" title="View enrolled students">
+                    <span class="badge badge-info">${c.enrollmentCount} 👥</span>
+                </button>
+            </td>
+            <td>
+                <div class="action-btns">
+                    <button class="btn btn-sm btn-enroll" onclick="openEnrollModal(${c.courseId}, '${esc(c.courseName)}')" title="Enroll a student">
+                        ➕ Enroll
+                    </button>
+                    <button class="btn btn-sm btn-assign" onclick="openAssignProfModal(${c.courseId}, '${esc(c.courseName)}')" title="Assign a professor">
+                        👨‍🏫 Prof
+                    </button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+/* Helper: check if a student is enrolled in a course
+   (We use students' courseCount heuristic since the API doesn't
+    return per-course student lists — show all students as candidates) */
+function enrolledInCourse(student, courseId, courses) {
+    // The C++ backend tracks course IDs per student but the API
+    // only returns courseCount. We show all students as candidates.
+    return false; // placeholder — panel shows guidance text instead
+}
+
+// ── Show enrolled students panel ──────────────────────────────
+async function showEnrolledStudents(courseId, courseName) {
+    const panel = document.getElementById('enrollPanel');
+    const title = document.getElementById('enrollPanelTitle');
+    const body  = document.getElementById('enrollPanelBody');
+
+    title.textContent = `Enrolled Students — ${courseName} (Course #${courseId})`;
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Reload fresh course data to get enrollment count
+    const courses = await apiGet('/api/courses');
+    const students = await apiGet('/api/students');
+    const course = (courses || []).find(c => c.courseId === courseId);
+    const count = course ? course.enrollmentCount : 0;
+
+    if (count === 0) {
+        body.innerHTML = `
+            <div class="enroll-empty">
+                <div class="enroll-empty-icon">📭</div>
+                <div>No students enrolled in <strong>${esc(courseName)}</strong> yet.</div>
+                <button class="btn btn-primary" style="margin-top:14px" onclick="openEnrollModal(${courseId}, '${esc(courseName)}')">
+                    ➕ Enroll First Student
+                </button>
+            </div>`;
+        return;
+    }
+
+    // Show enrolled count + list all students (they may be enrolled)
+    body.innerHTML = `
+        <div class="enroll-summary">
+            <span class="badge badge-success">${count} student${count !== 1 ? 's' : ''} enrolled</span>
+            <button class="btn btn-sm btn-enroll" style="margin-left:12px" onclick="openEnrollModal(${courseId}, '${esc(courseName)}')">➕ Enroll More</button>
+        </div>
+        <div class="student-chips">
+            ${(students || []).map(s => `
+                <div class="student-chip">
+                    <span class="chip-id">#${s.id}</span>
+                    <span class="chip-name">${esc(s.name)}</span>
+                    <span class="chip-branch badge badge-info">${esc(s.branch)} · Yr${s.year}</span>
+                </div>
+            `).join('')}
+        </div>
+        <p class="enroll-note">💡 Tip: Use <strong>Enroll</strong> button to add students. The C++ backend validates duplicates automatically.</p>`;
+}
+
+// ── Enroll Student Modal ───────────────────────────────────────
+function openEnrollModal(courseId, courseName) {
+    const studentOptions = allStudents.map(s =>
+        `<option value="${s.id}">#${s.id} — ${esc(s.name)} (${esc(s.branch)}, Yr${s.year})</option>`
+    ).join('');
+
+    openModal(`➕ Enroll Student — ${courseName}`, `
+        <div class="enroll-course-info">
+            <span class="badge badge-info">Course #${courseId}</span>
+            <strong style="margin-left:8px">${esc(courseName)}</strong>
+        </div>
+        <form id="enrollForm" onsubmit="submitEnroll(event, ${courseId})" style="margin-top:16px">
+            <div class="form-group">
+                <label>Select Student</label>
+                ${studentOptions.length > 0
+                    ? `<select class="form-control" id="enroll_sid" required>
+                           <option value="">— Choose a student —</option>
+                           ${studentOptions}
+                       </select>`
+                    : `<input type="number" class="form-control" id="enroll_sid" placeholder="Enter Student ID manually" required>`
+                }
+            </div>
+            <div class="form-group" style="margin-top:4px">
+                <label>Or enter Student ID directly</label>
+                <input type="number" class="form-control" id="enroll_sid_manual" placeholder="e.g. 101" min="1">
+                <small class="form-hint">Overrides dropdown if filled.</small>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Enroll Student</button>
+            </div>
+        </form>
+    `);
+}
+
+async function submitEnroll(e, courseId) {
+    e.preventDefault();
+    const manual = document.getElementById('enroll_sid_manual').value.trim();
+    const dropdown = document.getElementById('enroll_sid');
+    const studentId = manual || (dropdown ? dropdown.value : '');
+
+    if (!studentId) {
+        showToast('Please select or enter a Student ID.', 'warning');
+        return;
+    }
+
+    const res = await apiPost('/api/courses/enroll', { courseId, studentId });
+    if (res && res.success) {
+        showToast(`Student #${studentId} enrolled in course #${courseId}!`, 'success');
+        closeModal();
+        loadCourses();
+        // Refresh enrollment panel if open
+        const panel = document.getElementById('enrollPanel');
+        if (panel.style.display !== 'none') {
+            showEnrolledStudents(courseId, '');
+        }
+    } else {
+        showToast((res && res.message) || 'Enrollment failed — student may already be enrolled.', 'error');
+    }
+}
+
+// ── Assign Professor Modal ────────────────────────────────────
+function openAssignProfModal(courseId, courseName) {
+    const profOptions = allProfs.map(p => 
+        `<option value="${p.id}">#${p.id} — ${esc(p.name)} (${esc(p.department)})</option>`
+    ).join('');
+    openModal(`👨‍🏫 Assign Professor — ${courseName}`, `
+        <div class="enroll-course-info">
+            <span class="badge badge-info">Course #${courseId}</span>
+            <strong style="margin-left:8px">${esc(courseName)}</strong>
+        </div>
+        <form id="assignProfForm" onsubmit="submitAssignProf(event, ${courseId})" style="margin-top:16px">
+            <div class="form-group">
+                <label>Professor ID</label>
+                <select class="form-control" id="assign_pid" required>
+                    <option value="">— Choose a professor —</option>
+                    ${profOptions}
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Assign Professor</button>
+            </div>
+        </form>
+    `);
+}
+
+async function submitAssignProf(e, courseId) {
+    e.preventDefault();
+    const professorId = document.getElementById('assign_pid').value;
+    const res = await apiPost('/api/courses/assign-professor', { courseId, professorId });
+    if (res && res.success) {
+        showToast(`Professor #${professorId} assigned to course #${courseId}!`, 'success');
+        closeModal();
+        loadCourses();
+    } else {
+        showToast((res && res.message) || 'Assignment failed.', 'error');
+    }
+}
+
+// ── Add Course Modal ──────────────────────────────────────────
+function openAddCourseModal() {
+    openModal('Add New Course', `
+        <form id="addCourseForm" onsubmit="submitAddCourse(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Course ID</label>
+                    <input type="number" class="form-control" id="c_id" placeholder="e.g. 306" required>
+                </div>
+                <div class="form-group">
+                    <label>Course Code</label>
+                    <input type="text" class="form-control" id="c_code" placeholder="CS401" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Course Name</label>
+                <input type="text" class="form-control" id="c_name" placeholder="Artificial Intelligence" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Credits</label>
+                    <select class="form-control" id="c_credits" required>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3" selected>3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Department</label>
+                    <input type="text" class="form-control" id="c_dept" placeholder="Computer Science" required>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Course</button>
+            </div>
+        </form>
+    `);
+}
+
+async function submitAddCourse(e) {
+    e.preventDefault();
+    const res = await apiPost('/api/courses/add', {
+        courseId: document.getElementById('c_id').value,
+        courseCode: document.getElementById('c_code').value,
+        courseName: document.getElementById('c_name').value,
+        credits: document.getElementById('c_credits').value,
+        department: document.getElementById('c_dept').value,
+    });
+    if (res && res.success) {
+        showToast('Course added successfully!', 'success');
+        closeModal();
+        loadCourses();
+    } else {
+        showToast((res && res.message) || 'Failed to add course.', 'error');
+    }
+}
+
+loadCourses();
+</script>
+{% endblock %}

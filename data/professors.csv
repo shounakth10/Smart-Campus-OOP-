@@ -1,0 +1,4 @@
+id,name,email,phone,department,designation,courseIds
+201,Dr. Amit Patil,amit@vit.edu,9876543220,Computer Science,Assistant Professor,301;303;302
+202,Dr. Neha Joshi,neha@vit.edu,9876543221,Computer Science,Associate Professor,302;304
+203,Dr. Rajesh Kumar,rajesh@vit.edu,9876543222,Electronics,Senior Professor,305

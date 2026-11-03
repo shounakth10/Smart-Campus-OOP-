@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Events{% endblock %}
+{% block page_title %}Campus Events{% endblock %}
+
+{% block content %}
+<div class="events-filter-bar">
+    <input type="text" class="search-input" placeholder="🔍 Search events..." oninput="filterEvents(this.value)">
+    <div class="filter-tags">
+        <button class="filter-tag active" onclick="setTypeFilter('', this)">All</button>
+        <button class="filter-tag" onclick="setTypeFilter('Workshop', this)">Workshop</button>
+        <button class="filter-tag" onclick="setTypeFilter('Cultural Event', this)">Cultural</button>
+        <button class="filter-tag" onclick="setTypeFilter('Sports Event', this)">Sports</button>
+        <button class="filter-tag" onclick="setTypeFilter('Technical Event', this)">Technical</button>
+    </div>
+    <button class="btn btn-primary" onclick="openCreateEventModal()">+ Create Event</button>
+</div>
+
+<div id="eventsGrid" class="events-grid">
+    <div class="loading-placeholder">Loading events from C++ backend…</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allEvents = [];
+let allFacilities = [];
+let allStudents = [];
+let activeTypeFilter = '';
+
+const eventTypeColors = {
+    'Workshop': { bg: 'rgba(59,130,246,0.15)', border: '#3b82f6', icon: '🔧' },
+    'Cultural Event': { bg: 'rgba(236,72,153,0.15)', border: '#ec4899', icon: '🎭' },
+    'Sports Event': { bg: 'rgba(16,185,129,0.15)', border: '#10b981', icon: '⚽' },
+    'Technical Event': { bg: 'rgba(245,158,11,0.15)', border: '#f59e0b', icon: '💻' },
+};
+
+function setTypeFilter(type, btn) {
+    activeTypeFilter = type;
+    document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderEvents(allEvents);
+}
+
+function filterEvents(query) {
+    renderEvents(allEvents, query);
+}
+
+function renderEvents(data, query = '') {
+    const grid = document.getElementById('eventsGrid');
+    let filtered = data;
+    if (activeTypeFilter) filtered = filtered.filter(e => e.type === activeTypeFilter);
+    if (query) {
+        const q = query.toLowerCase();
+        filtered = filtered.filter(e =>
+            (e.eventName || '').toLowerCase().includes(q) ||
+            (e.description || '').toLowerCase().includes(q) ||
+            (e.date || '').includes(q)
+        );
+    }
+    if (filtered.length === 0) {
+        grid.innerHTML = '<div class="empty-events">No events found.</div>';
+        return;
+    }
+    grid.innerHTML = filtered.map(e => {
+        const theme = eventTypeColors[e.type] || { bg: 'rgba(99,102,241,0.15)', border: '#6366f1', icon: '🎉' };
+        const fill = Math.round((e.participantCount / Math.max(e.maxParticipants, 1)) * 100);
+        const fillColor = fill >= 90 ? '#ef4444' : fill >= 60 ? '#f59e0b' : '#10b981';
+        return `
+            <div class="event-card" style="background:${theme.bg};border-left:4px solid ${theme.border}">
+                <div class="event-top">
+                    <span class="event-type-icon">${theme.icon}</span>
+                    <span class="event-type-tag" style="color:${theme.border}">${esc(e.type)}</span>
+                </div>
+                <h3 class="event-title">${esc(e.eventName)}</h3>
+                <p class="event-desc">${esc(e.description)}</p>
+                <div class="event-meta">
+                    <span>📅 ${esc(e.date)}</span>
+                    <span>⏰ ${esc(e.startTime)} – ${esc(e.endTime)}</span>
+                    <span>🏛️ Facility #${e.facilityId}</span>
+                </div>
+                <div class="event-capacity">
+                    <div class="cap-bar-wrap">
+                        <div class="cap-bar" style="width:${fill}%;background:${fillColor}"></div>
+                    </div>
+                    <span class="cap-text">${e.participantCount}/${e.maxParticipants} participants (${fill}%)</span>
+                </div>
+                <div class="event-actions">
+                    <button class="btn btn-sm btn-primary" onclick="openRegisterModal(${e.eventId})">Register</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function loadEvents() {
+    const [data, facs, studs] = await Promise.all([
+        apiGet('/api/events'),
+        apiGet('/api/facilities'),
+        apiGet('/api/students')
+    ]);
+    allFacilities = facs || [];
+    allStudents = studs || [];
+    
+    const grid = document.getElementById('eventsGrid');
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        grid.innerHTML = '<div class="empty-events">No events found.</div>';
+        return;
+    }
+    allEvents = data;
+    renderEvents(data);
+}
+
+function openRegisterModal(eventId) {
+    openModal('Register for Event', `
+        <form id="regForm" onsubmit="submitRegister(event, ${eventId})">
+            <div class="form-group">
+                <label>Event ID</label>
+                <input type="number" class="form-control" value="${eventId}" readonly>
+            </div>
+            <div class="form-group">
+                <label>Student ID</label>
+                <select class="form-control" id="reg_sid" required>
+                    <option value="">— Choose Student —</option>
+                    ${allStudents.map(s => `<option value="${s.id}">#${s.id} - ${esc(s.name)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Register</button>
+            </div>
+        </form>
+    `);
+}
+
+async function submitRegister(e, eventId) {
+    e.preventDefault();
+    const res = await apiPost('/api/events/register', {
+        eventId: eventId,
+        studentId: document.getElementById('reg_sid').value,
+    });
+    if (res && res.success) {
+        showToast('Registered successfully!', 'success');
+        closeModal();
+        loadEvents();
+    } else {
+        showToast((res && res.message) || 'Registration failed.', 'error');
+    }
+}
+
+function openCreateEventModal() {
+    openModal('Create New Event', `
+        <form id="createEventForm" onsubmit="submitCreateEvent(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Event ID</label>
+                    <input type="number" class="form-control" id="ev_id" placeholder="e.g. 705" required>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select class="form-control" id="ev_type" required>
+                        <option value="Workshop">Workshop</option>
+                        <option value="Sports Event">Sports Event</option>
+                        <option value="Cultural Event">Cultural Event</option>
+                        <option value="Technical Event">Technical Event</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Event Name</label>
+                <input type="text" class="form-control" id="ev_name" placeholder="e.g. Python Bootcamp" required>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" class="form-control" id="ev_desc" placeholder="Brief description" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" class="form-control" id="ev_date" required>
+                </div>
+                <div class="form-group">
+                    <label>Start Time</label>
+                    <input type="time" class="form-control" id="ev_start" required>
+                </div>
+                <div class="form-group">
+                    <label>End Time</label>
+                    <input type="time" class="form-control" id="ev_end" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Facility ID</label>
+                    <select class="form-control" id="ev_fac" required>
+                        <option value="">— Choose Facility —</option>
+                        ${allFacilities.map(f => `<option value="${f.facilityId}">#${f.facilityId} - ${esc(f.name)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Max Participants</label>
+                    <input type="number" class="form-control" id="ev_max" placeholder="50" value="50" required>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Event</button>
+            </div>
+        </form>
+    `);
+}
+
+async function submitCreateEvent(e) {
+    e.preventDefault();
+    const res = await apiPost('/api/events/create', {
+        eventId: document.getElementById('ev_id').value,
+        type: document.getElementById('ev_type').value,
+        eventName: document.getElementById('ev_name').value,
+        description: document.getElementById('ev_desc').value,
+        date: document.getElementById('ev_date').value,
+        startTime: document.getElementById('ev_start').value,
+        endTime: document.getElementById('ev_end').value,
+        facilityId: document.getElementById('ev_fac').value,
+        maxParticipants: document.getElementById('ev_max').value,
+    });
+    if (res && res.success) {
+        showToast('Event created!', 'success');
+        closeModal();
+        loadEvents();
+    } else {
+        showToast((res && res.message) || 'Event creation failed.', 'error');
+    }
+}
+
+loadEvents();
+</script>
+{% endblock %}

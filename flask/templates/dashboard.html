@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="stats-grid" id="statsGrid">
+    <div class="stat-card skeleton">
+        <div class="stat-header"><span>Total Students</span><span class="stat-icon">🎒</span></div>
+        <div class="stat-value" id="stat-students">—</div>
+        <div class="stat-sub">Enrolled learners</div>
+    </div>
+    <div class="stat-card skeleton">
+        <div class="stat-header"><span>Professors</span><span class="stat-icon">👨‍🏫</span></div>
+        <div class="stat-value" id="stat-professors">—</div>
+        <div class="stat-sub">Faculty members</div>
+    </div>
+    <div class="stat-card skeleton">
+        <div class="stat-header"><span>Courses</span><span class="stat-icon">📚</span></div>
+        <div class="stat-value" id="stat-courses">—</div>
+        <div class="stat-sub">Active courses</div>
+    </div>
+    <div class="stat-card skeleton">
+        <div class="stat-header"><span>Facilities</span><span class="stat-icon">🏛️</span></div>
+        <div class="stat-value" id="stat-facilities">—</div>
+        <div class="stat-sub">Campus spaces</div>
+    </div>
+    <div class="stat-card skeleton">
+        <div class="stat-header"><span>Active Bookings</span><span class="stat-icon">📋</span></div>
+        <div class="stat-value" id="stat-bookings">—</div>
+        <div class="stat-sub">Current reservations</div>
+    </div>
+    <div class="stat-card skeleton">
+        <div class="stat-header"><span>Events</span><span class="stat-icon">🎉</span></div>
+        <div class="stat-value" id="stat-events">—</div>
+        <div class="stat-sub">Campus events</div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <div class="table-card">
+        <div class="table-header">
+            <h2 class="section-title">Facility Utilization</h2>
+            <span class="badge badge-info">Live from C++</span>
+        </div>
+        <canvas id="utilizationChart" height="200"></canvas>
+    </div>
+    <div class="table-card">
+        <div class="table-header">
+            <h2 class="section-title">Avg Facility Usage</h2>
+        </div>
+        <div class="util-summary" id="utilSummary">
+            <div class="util-big" id="avgUtilValue">—%</div>
+            <div class="util-label">Average Utilization</div>
+            <div class="util-top" id="topFacility">Most Used: —</div>
+        </div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <div class="table-card">
+        <div class="table-header">
+            <h2 class="section-title">Quick Links</h2>
+        </div>
+        <div class="quick-links">
+            <a href="/students" class="ql-card"><span>🎒</span> Manage Students</a>
+            <a href="/courses" class="ql-card"><span>📚</span> Manage Courses</a>
+            <a href="/bookings" class="ql-card"><span>📋</span> Create Booking</a>
+            <a href="/events" class="ql-card"><span>🎉</span> View Events</a>
+            <a href="/timetable" class="ql-card"><span>🗓️</span> Timetable</a>
+            <a href="/analytics" class="ql-card"><span>📈</span> Analytics</a>
+        </div>
+    </div>
+    <div class="table-card">
+        <div class="table-header">
+            <h2 class="section-title">System Info</h2>
+        </div>
+        <div class="sys-info">
+            <div class="sys-row"><span>Architecture</span><span>C++ → Flask → Browser</span></div>
+            <div class="sys-row"><span>Storage</span><span>CSV Files</span></div>
+            <div class="sys-row"><span>College Hours</span><span>08:00 – 20:00</span></div>
+            <div class="sys-row"><span>Weekly Baseline</span><span>60 hrs / facility</span></div>
+            <div class="sys-row"><span>Timetable Entries</span><span id="stat-timetable">—</span></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(async function() {
+    const data = await apiGet('/api/dashboard');
+    if (!data) return;
+    setText('stat-students', data.totalStudents);
+    setText('stat-professors', data.totalProfessors);
+    setText('stat-courses', data.totalCourses);
+    setText('stat-facilities', data.totalFacilities);
+    setText('stat-bookings', data.activeBookings);
+    setText('stat-events', data.totalEvents);
+    setText('stat-timetable', data.totalTimetableEntries);
+    setText('avgUtilValue', (data.averageFacilityUtilization || 0).toFixed(1) + '%');
+    setText('topFacility', 'Most Used: ' + (data.mostUtilizedFacility || 'N/A'));
+    document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('skeleton'));
+
+    // Fetch facility utilization for chart
+    const facData = await apiGet('/api/facilities');
+    if (facData && Array.isArray(facData)) {
+        const labels = facData.map(f => f.name);
+        const utils = facData.map(f => parseFloat(f.utilization || 0).toFixed(1));
+        const colors = utils.map(u => u > 90 ? '#ef4444' : u > 70 ? '#f59e0b' : u > 30 ? '#3b82f6' : '#6b7280');
+        initBarChart('utilizationChart', labels, utils, colors, 'Utilization %');
+    }
+})();
+</script>
+{% endblock %}

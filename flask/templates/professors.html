@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Professors{% endblock %}
+{% block page_title %}Professors{% endblock %}
+
+{% block content %}
+<div class="table-card">
+    <div class="table-header">
+        <h2 class="section-title">Faculty Directory</h2>
+        <div class="header-actions">
+            <input type="text" class="search-input" id="profSearch" placeholder="🔍 Search faculty..." oninput="filterTable('profTable', this.value)">
+            <button class="btn btn-primary" onclick="openAddProfModal()">+ Add Professor</button>
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <table id="profTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Department</th>
+                    <th>Designation</th>
+                    <th>Courses</th>
+                </tr>
+            </thead>
+            <tbody id="profBody">
+                <tr><td colspan="7" class="loading-cell">Loading from C++ backend…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadProfessors() {
+    const data = await apiGet('/api/professors');
+    const body = document.getElementById('profBody');
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        body.innerHTML = '<tr><td colspan="7" class="empty-cell">No professors found.</td></tr>';
+        return;
+    }
+    body.innerHTML = data.map(p => `
+        <tr>
+            <td><span class="id-badge">${p.id}</span></td>
+            <td><strong>${esc(p.name)}</strong></td>
+            <td>${esc(p.email)}</td>
+            <td>${esc(p.phone)}</td>
+            <td><span class="badge badge-info">${esc(p.department)}</span></td>
+            <td>${esc(p.designation)}</td>
+            <td><span class="badge badge-success">${p.courseCount || 0} courses</span></td>
+        </tr>
+    `).join('');
+}
+
+function openAddProfModal() {
+    openModal('Add New Professor', `
+        <form id="addProfForm" onsubmit="submitAddProf(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Professor ID</label>
+                    <input type="number" class="form-control" id="p_id" placeholder="e.g. 204" required>
+                </div>
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" class="form-control" id="p_name" placeholder="Dr. Name" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" class="form-control" id="p_email" placeholder="name@vit.edu" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="text" class="form-control" id="p_phone" placeholder="9876543220" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Department</label>
+                    <input type="text" class="form-control" id="p_dept" placeholder="Computer Science" required>
+                </div>
+                <div class="form-group">
+                    <label>Designation</label>
+                    <input type="text" class="form-control" id="p_desig" placeholder="Assistant Professor" required>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Professor</button>
+            </div>
+        </form>
+    `);
+}
+
+async function submitAddProf(e) {
+    e.preventDefault();
+    const res = await apiPost('/api/professors/add', {
+        id: document.getElementById('p_id').value,
+        name: document.getElementById('p_name').value,
+        email: document.getElementById('p_email').value,
+        phone: document.getElementById('p_phone').value,
+        department: document.getElementById('p_dept').value,
+        designation: document.getElementById('p_desig').value,
+    });
+    if (res && res.success) {
+        showToast('Professor added successfully!', 'success');
+        closeModal();
+        loadProfessors();
+    } else {
+        showToast((res && res.message) || 'Failed to add professor.', 'error');
+    }
+}
+
+loadProfessors();
+</script>
+{% endblock %}
